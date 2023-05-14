@@ -29,8 +29,9 @@ def handle_packet(packet):
         dport = packet[TCP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
+        data = packet[TCP].payload.load
         print(
-            f"TCP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}"
+            f"TCP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}"
         )
 
     if packet.haslayer(UDP):
@@ -41,8 +42,9 @@ def handle_packet(packet):
         dport = packet[UDP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
+        data = packet[UDP].payload.load
         print(
-            f"UDP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}"
+            f"UDP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}"
         )
 
 
