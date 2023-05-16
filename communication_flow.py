@@ -2,6 +2,8 @@ from scapy.all import *
 
 # 통신 흐름을 저장할 딕셔너리
 communication_flow = {}
+# protocol 횟수 카운트
+protocol_count = {}
 
 def analyze_packet(packet):
     if packet.haslayer(IP):
@@ -27,6 +29,11 @@ def analyze_packet(packet):
         else:
             communication_flow[flow_key] = 1
 
+        if protocol in protocol_count:
+            protocol_count[protocol] += 1
+        else:
+            protocol_count[protocol] = 1
+
 # UDP 및 TCP 패킷 캡처
 sniff(filter="udp or tcp", prn=analyze_packet)
 
@@ -35,3 +42,6 @@ for flow, count in communication_flow.items():
     src_ip, src_port, dst_ip, dst_port, protocol = flow
     print(f"Flow: {protocol} {src_ip}:{src_port} -> {dst_ip}:{dst_port}, Count: {count}")
 
+#프로토콜 횟수 분석 결과 출력
+for protocol, count in protocol_count.items():
+    print(f"Protocol: {protocol}, Count : {count}")
