@@ -31,7 +31,7 @@ def handle_packet(packet):
         dport = packet[TCP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
-        data = packet[TCP].payload.load if packet[TCP].payload else b''  # Check if payload exists
+        data = packet[TCP].payload.load if hasattr(packet[TCP].payload, 'load') else b''  # Check if payload exists
         print(f"TCP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}")
         packet_count += 1
 
@@ -43,9 +43,10 @@ def handle_packet(packet):
         dport = packet[UDP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
-        data = packet[UDP].payload.load if packet[UDP].payload else b''  # Check if payload exists
+        data = packet[UDP].payload.load if hasattr(packet[UDP].payload, 'load') else b''  # Check if payload exists
         print(f"UDP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}")
         packet_count += 1
+
 
 
 sniffingTime = input("Sniffing Time: ") # 몇 초간 패킷 캡쳐할 것인지
@@ -53,14 +54,15 @@ if iot_ip:
     print("프로그램 시작")
     pcap_file = sniff(prn=handle_packet, timeout=int(sniffingTime), filter=f"host {iot_ip}")
     print("Finish Capture Packet")
-    if packet_count == 0: # 아무 패킷도 캡쳐되지 않음
+    if packet_count == 0: # No packets captured
         print("No Packet")
         sys.exit()
     else:
         print("Total Packet: %s" % packet_count)
-        print("Packets per second: %.2f" % packet_count/sniffingTime)
+        print("Packets per second: %.2f" % (packet_count / float(sniffingTime)))
         file_name = input("Enter File Name: ")
-        wrpcap(str(file_name), pcap_file) # pcap 파일로 저장
+        wrpcap(file_name, pcap_file) # Save as a pcap file
+
 
 else:
     print("프로그램을 실행할 수 없습니다.")
