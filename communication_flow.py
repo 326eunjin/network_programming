@@ -23,7 +23,7 @@ def analyze_packet(packet):
             return
 
         # 송신자와 수신자를 키로 사용하여 통신 흐름 저장
-        flow_key = (src_ip, src_port, dst_ip, dst_port, protocol)
+        flow_key = (src, sport, dst, dport, protocol)
         if flow_key in communication_flow:
             communication_flow[flow_key] += 1
         else:
@@ -39,8 +39,8 @@ sniff(filter="udp or tcp", prn=analyze_packet)
 
 # 통신 흐름 출력
 for flow, count in communication_flow.items():
-    src_ip, src_port, dst_ip, dst_port, protocol = flow
-    print(f"Flow: {protocol} {src_ip}:{src_port} -> {dst_ip}:{dst_port}, Count: {count}")
+    src, sport, dst, dport, protocol = flow
+    print(f"Flow: {protocol} {src}:{sport} -> {dst}:{dport}, Count: {count}")
 
 #프로토콜 횟수 분석 결과 출력
 for protocol, count in protocol_count.items():
