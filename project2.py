@@ -24,28 +24,29 @@ else:
 def handle_packet(packet):
     global packet_count
     if packet.haslayer(TCP):
-        # TCP 패킷 분석 코드 작성
+        # TCP packet analysis code
         src = packet[IP].src
         dst = packet[IP].dst
         sport = packet[TCP].sport
         dport = packet[TCP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
-        data = packet[TCP].payload.load
+        data = packet[TCP].payload.load if packet[TCP].payload else b''  # Check if payload exists
         print(f"TCP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}")
-        packet_count += 1 # 패킷 개수 증가
+        packet_count += 1
 
     if packet.haslayer(UDP):
-        # UDP 패킷 분석 코드 작성
+        # UDP packet analysis code
         src = packet[IP].src
         dst = packet[IP].dst
         sport = packet[UDP].sport
         dport = packet[UDP].dport
         length = packet[IP].len
         checksum = packet[IP].chksum
-        data = packet[UDP].payload.load
+        data = packet[UDP].payload.load if packet[UDP].payload else b''  # Check if payload exists
         print(f"UDP packet: source={src}, source_port={sport}, destination={dst}, destination_port={dport}, length={length}, checksum={checksum}, data={data}")
-        packet_count += 1 # 패킷 개수 증가
+        packet_count += 1
+
 
 sniffingTime = input("Sniffing Time: ") # 몇 초간 패킷 캡쳐할 것인지
 if iot_ip:
