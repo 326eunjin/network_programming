@@ -23,19 +23,25 @@ def measure_network_performance(destination_ip, destination_port):
     total_bytes_sent = 0
     total_time_elapsed = 0
     packets_received = 0
+    packets_lost = 0
 
     for _ in range(num_packets):
         # 현재 시간 기록
         start_time = time.time()
 
+        # 더미 데이터 생성 (패킷 크기에 맞게 조절 가능)
+        dummy_data = b"0" * 1024  # 1024바이트(1KB) 더미 데이터
+
         # UDP 패킷 송신
-        sock.sendto(b"", (destination_ip, destination_port))
+        sock.sendto(dummy_data, (destination_ip, destination_port))
+        total_bytes_sent += len(dummy_data)
 
         # 수신 대기
         try:
             data, _ = sock.recvfrom(1024)
             packets_received += 1
         except socket.timeout:
+            packet_lost += 1
             print("Packet loss")
             continue
 
@@ -44,7 +50,6 @@ def measure_network_performance(destination_ip, destination_port):
         elapsed_time = end_time - start_time
 
         # 송신 및 수신 시간 업데이트
-        total_bytes_sent += len(data)
         total_time_elapsed += elapsed_time
 
     if packets_received == 0:
@@ -57,13 +62,11 @@ def measure_network_performance(destination_ip, destination_port):
 
     print(f"Average Bandwidth: {bandwidth} Mbps")
     print(f"Average Latency: {avg_latency} ms")
+    print(f"Packets Lost: {packets_lost}/{num_packets}")
 
     # 소켓 닫기
     sock.close()
 
-# 네트워크 성능 측정 대상 지정 (웹캠의 IP 주소와 포트 써줘)
-destination_ip = "192.168.35.51"
-destination_port = 554
-
 # 네트워크 성능 평가 실행
+for ip_address in scanned_ips:
 measure_network_performance(destination_ip, destination_port)
