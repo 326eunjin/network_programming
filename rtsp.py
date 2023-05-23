@@ -2,8 +2,11 @@ import sys
 import nmap
 from datetime import datetime
 from scapy.all import *
+import matplotlib.pyplot as plt
+from collections import Counter
 
 packet_count = 0
+protocols = Counter()
 
 nm = nmap.PortScanner()
 nm.scan("192.168.35.0/24")
@@ -21,7 +24,7 @@ else:
 
 
 def handle_tcp_packet(packet):
-    global packet_count
+    global packet_count, protocols
     if packet.haslayer(TCP):
         sport = packet[TCP].sport
         dport = packet[TCP].dport
@@ -34,10 +37,11 @@ def handle_tcp_packet(packet):
         print()
 
         packet_count += 1
+        protocols["TCP"] += 1
 
 
 def handle_udp_packet(packet):
-    global packet_count
+    global packet_count, protocols
     if packet.haslayer(UDP):
         sport = packet[UDP].sport
         dport = packet[UDP].dport
@@ -50,10 +54,11 @@ def handle_udp_packet(packet):
         print()
 
         packet_count += 1
+        protocols["UDP"] += 1
 
 
 def handle_rtp_packet(packet):
-    global packet_count
+    global packet_count, protocols
     if packet.haslayer(RTP):
         payload = packet[RTP].payload
         if payload:
@@ -83,6 +88,7 @@ def handle_rtp_packet(packet):
             print()
 
             packet_count += 1
+            protocols["RTP"] += 1
 
 
 sniffingTime = input("Sniffing Time (in seconds): ")
@@ -116,5 +122,12 @@ if iot_ip:
     else:
         print("Total Packet: %s" % packet_count)
 
+        # Visualization - Protocol Distribution
+        labels = protocols.keys()
+        values = protocols.values()
+
+        plt.pie(values, labels=labels, autopct="%1.1f%%")
+        plt.title("Protocol Distribution")
+        plt.show()
 else:
     print("프로그램을 실행할 수 없습니다.")
