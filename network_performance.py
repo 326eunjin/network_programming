@@ -1,5 +1,17 @@
 import socket
 import time
+import nmap
+
+# 네트워크 스캐너를 사용하여 iot 기기의 IP 주소를 스캔
+nm = nmap.PortScanner()
+nm.scan("192.168.35.0/24")  # 네트워크 주소 범위 지정
+
+# 스캔된 IP 주소 리스트 추출
+scanned_ips = []
+for host in nm.all_hosts():
+    # iot 기기의 특정 포트 번호가 열려있는지 확인
+    if nm[host].has_tcp(554) and nm[host]["tcp"][554]["state"] == "open":
+        scanned_ips.append(host)
 
 def measure_network_performance(destination_ip, destination_port):
     # UDP 소켓 생성
@@ -51,7 +63,7 @@ def measure_network_performance(destination_ip, destination_port):
 
 # 네트워크 성능 측정 대상 지정 (웹캠의 IP 주소와 포트 써줘)
 destination_ip = "192.168.35.51"
-destination_port = 80
+destination_port = 554
 
 # 네트워크 성능 평가 실행
 measure_network_performance(destination_ip, destination_port)
