@@ -1,7 +1,6 @@
 import sys
 import nmap
-import time
-import os
+from datetime import datetime
 from scapy.all import *
 
 packet_count = 0
@@ -86,24 +85,29 @@ def handle_rtp_packet(packet):
             packet_count += 1
 
 
-sniffingTime = input("Sniffing Time: ")
+sniffingTime = input("Sniffing Time (in seconds): ")
+start_time = datetime.now()
+end_time = start_time + timedelta(seconds=int(sniffingTime))
+
 if iot_ip:
     print("프로그램 시작")
-    sniff(
-        prn=handle_tcp_packet,
-        timeout=int(sniffingTime),
-        filter=f"host {iot_ip} and tcp",
-    )
-    sniff(
-        prn=handle_udp_packet,
-        timeout=int(sniffingTime),
-        filter=f"host {iot_ip} and udp",
-    )
-    sniff(
-        prn=handle_rtp_packet,
-        timeout=int(sniffingTime),
-        filter=f"host {iot_ip} and udp and port 554",
-    )
+
+    while datetime.now() <= end_time:
+        sniff(
+            prn=handle_tcp_packet,
+            timeout=1,
+            filter=f"host {iot_ip} and tcp",
+        )
+        sniff(
+            prn=handle_udp_packet,
+            timeout=1,
+            filter=f"host {iot_ip} and udp",
+        )
+        sniff(
+            prn=handle_rtp_packet,
+            timeout=1,
+            filter=f"host {iot_ip} and udp and port 554",
+        )
 
     print("Finish Capture Packet")
     if packet_count == 0:
