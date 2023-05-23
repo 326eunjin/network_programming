@@ -31,13 +31,21 @@ def handle_packet(packet):
         src = packet[Ether].src
         dst = packet[Ether].dst
         length = len(packet[Ether])
-        checksum = packet[Ether].chksum
+
+        try:
+            checksum = packet[Ether].chksum
+        except AttributeError:
+            checksum = "N/A"
 
         if IP in packet:
             ip_src = packet[IP].src
             ip_dst = packet[IP].dst
             ip_length = packet[IP].len
-            ip_checksum = packet[IP].chksum
+
+            try:
+                ip_checksum = packet[IP].chksum
+            except AttributeError:
+                ip_checksum = "N/A"
 
             if packet.haslayer(TCP):
                 sport = packet[TCP].sport
