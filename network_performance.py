@@ -16,7 +16,7 @@ for host in nm.all_hosts():
 destination_port = 554
 
 def measure_network_performance(destination_ip, destination_port):
-    # UDP 소켓 생성
+    # TCP 소켓 생성
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)  # 응답 대기 시간 설정 (1초)
 
@@ -27,32 +27,39 @@ def measure_network_performance(destination_ip, destination_port):
     packets_received = 0
     packets_lost = 0
 
-    for _ in range(num_packets):
-        # 현재 시간 기록
-        start_time = time.time()
+    try:
+        #목적지 IP 주소와 포트에 연결
+        sock.connect((destination_ip, destination_port))
+        for _ in range(num_packets):
+            # 현재 시간 기록
+            start_time = time.time()
 
-        # 더미 데이터 생성 (패킷 크기에 맞게 조절 가능)
-        dummy_data = b"0" * 1024  # 1024바이트(1KB) 더미 데이터
+            # 더미 데이터 생성 (패킷 크기에 맞게 조절 가능)
+            dummy_data = b"0" * 1024  # 1024바이트(1KB) 더미 데이터
 
-        # UDP 패킷 송신
-        sock.sendto(dummy_data, (destination_ip, destination_port))
-        total_bytes_sent += len(dummy_data)
+            # TCP 패킷 송신
+            sock.send(dummy_data)
+            total_bytes_sent += len(dummy_data)
 
-        # 수신 대기
-        try:
-            data, _ = sock.recvfrom(1024)
-            packets_received += 1
-        except socket.timeout:
-            packets_lost += 1
-            print("Packet loss")
-            continue
+            # 수신 대기
+            try:
+                data, _ = sock.recvfrom(1024)
+                packets_received += 1
+            except socket.timeout:
+                packets_lost += 1
+                print("Packet loss")
+                continue
 
-        # 현재 시간 기록 및 송신-수신 시간 계산
-        end_time = time.time()
-        elapsed_time = end_time - start_time
+            # 현재 시간 기록 및 송신-수신 시간 계산
+            end_time = time.time()
+            elapsed_time = end_time - start_time
 
-        # 송신 및 수신 시간 업데이트
-        total_time_elapsed += elapsed_time
+            # 송신 및 수신 시간 업데이트
+            total_time_elapsed += elapsed_time
+
+    except socket.error as e:
+        print(f"Socket error: {e}")
+        return
 
     if packets_received == 0:
         print("No packets received.")
