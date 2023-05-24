@@ -13,7 +13,6 @@ for host in nm.all_hosts():
     if nm[host].has_tcp(554) and nm[host]["tcp"][554]["state"] == "open":
         scanned_ips.append(host)
 
-destination_ip = scanned_ips
 destination_port = 554
 
 def measure_network_performance(destination_ip, destination_port):
@@ -71,4 +70,5 @@ def measure_network_performance(destination_ip, destination_port):
     sock.close()
 
 # 네트워크 성능 평가 실행
-measure_network_performance(destination_ip, destination_port)
+for ip_address in scanned_ips:
+measure_network_performance(ip_address, destination_port)
