@@ -43,7 +43,7 @@ def measure_network_performance(destination_ip, destination_port):
             data, _ = sock.recvfrom(1024)
             packets_received += 1
         except socket.timeout:
-            packet_lost += 1
+            packets_lost += 1
             print("Packet loss")
             continue
 
