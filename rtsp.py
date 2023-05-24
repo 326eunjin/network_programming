@@ -8,6 +8,7 @@ from collections import Counter
 packet_count = 0
 protocols = Counter()
 captured_packets = []
+latency_values = []
 
 nm = nmap.PortScanner()
 nm.scan("192.168.35.0/24")
@@ -26,7 +27,7 @@ print("IoT 기기의 IP 주소:", iot_ip)
 
 
 def handle_tcp_packet(packet):
-    global packet_count, protocols, captured_packets
+    global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(TCP):
         sport = packet[TCP].sport
         dport = packet[TCP].dport
@@ -41,10 +42,11 @@ def handle_tcp_packet(packet):
         packet_count += 1
         protocols["TCP"] += 1
         captured_packets.append(packet)
+        latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
 
 def handle_udp_packet(packet):
-    global packet_count, protocols, captured_packets
+    global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(UDP):
         sport = packet[UDP].sport
         dport = packet[UDP].dport
@@ -59,10 +61,11 @@ def handle_udp_packet(packet):
         packet_count += 1
         protocols["UDP"] += 1
         captured_packets.append(packet)
+        latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
 
 def handle_rtp_packet(packet):
-    global packet_count, protocols, captured_packets
+    global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(RTP):
         payload = packet[RTP].payload
         if payload:
@@ -94,6 +97,7 @@ def handle_rtp_packet(packet):
             packet_count += 1
             protocols["RTP"] += 1
             captured_packets.append(packet)
+            latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
 
 sniffingTime = input("Sniffing Time (in seconds): ")
@@ -149,7 +153,39 @@ if iot_ip:
         plt.show()
         print("Packet Size Distribution")
 
-# ...
+        # Latency Analysis
+        src_ips = set()
+        dst_ips = set()
+        rtt_values = []
+
+        for src_ip, dst_ip, timestamp in latency_values:
+            src_ips.add(src_ip)
+            dst_ips.add(dst_ip)
+            rtt = (datetime.fromtimestamp(timestamp) - start_time).total_seconds()
+            rtt_values.append(rtt)
+
+        print("Latency Analysis:")
+        for src_ip in src_ips:
+            for dst_ip in dst_ips:
+                latencies = [
+                    rtt
+                    for src, dst, rtt in latency_values
+                    if src == src_ip and dst == dst_ip
+                ]
+                if len(latencies) > 0:
+                    avg_latency = sum(latencies) / len(latencies)
+                    print(f"Average Latency (Source: {src_ip}, Destination: {dst_ip}): {avg_latency} seconds")
+                else:
+                    print(f"No packets found for Source: {src_ip}, Destination: {dst_ip}")
+
+
+        # Visualization - Latency Analysis
+        plt.figure(figsize=(12, 6))
+        plt.plot(rtt_values, marker="o")
+        plt.xlabel("Packet Index")
+        plt.ylabel("Round-trip Time (RTT) in seconds")
+        plt.title("Latency Analysis")
+        plt.show()
 
         # Visualization - Traffic Analysis
         intervals = []
