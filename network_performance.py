@@ -71,4 +71,4 @@ def measure_network_performance(destination_ip, destination_port):
 
 # 네트워크 성능 평가 실행
 for ip_address in scanned_ips:
-measure_network_performance(ip_address, destination_port)
+    measure_network_performance(ip_address, destination_port)
