@@ -43,7 +43,7 @@ def measure_network_performance(destination_ip, destination_port):
 
             # 수신 대기
             try:
-                data, _ = sock.recvfrom(1024)
+                data = sock.recvfrom(1024)
                 packets_received += 1
             except socket.timeout:
                 packets_lost += 1
