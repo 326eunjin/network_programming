@@ -9,6 +9,7 @@ packet_count = 0
 protocols = Counter()
 captured_packets = []
 latency_values = []
+communication_flow = {}
 
 nm = nmap.PortScanner()
 nm.scan("192.168.35.0/24")
@@ -28,6 +29,7 @@ print("IoT 기기의 IP 주소:", iot_ip)
 # protocol 횟수 카운트
 protocol_count = {}
 
+
 def analyze_packet(packet):
     if packet.haslayer(IP):
         if packet.haslayer(UDP):
@@ -45,7 +47,6 @@ def analyze_packet(packet):
         else:
             return
 
-        # 송신자와 수신자를 키로 사용하여 통신 흐름 저장
         flow_key = (src, sport, dst, dport, protocol)
         if flow_key in communication_flow:
             communication_flow[flow_key] += 1
@@ -57,6 +58,7 @@ def analyze_packet(packet):
         else:
             protocol_count[protocol] = 1
 
+
 def handle_tcp_packet(packet):
     global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(TCP):
@@ -65,7 +67,6 @@ def handle_tcp_packet(packet):
         data = packet[TCP].payload.load if hasattr(packet[TCP].payload, "load") else b""
         print(f"TCP packet: source_port={sport}, destination_port={dport}")
 
-        # Hexdump of packet data
         hexdump(data)
 
         print()
@@ -84,7 +85,6 @@ def handle_udp_packet(packet):
         data = packet[UDP].payload.load if hasattr(packet[UDP].payload, "load") else b""
         print(f"UDP packet: source_port={sport}, destination_port={dport}")
 
-        # Hexdump of packet data
         hexdump(data)
 
         print()
@@ -102,7 +102,6 @@ def handle_rtp_packet(packet):
         if payload:
             print("RTP packet:")
 
-            # Extract RTP header fields
             version = packet[RTP].version
             padding = packet[RTP].padding
             extension = packet[RTP].extension
@@ -119,10 +118,6 @@ def handle_rtp_packet(packet):
             print(f"Timestamp: {timestamp}")
             print(f"Sequence number: {sequence}")
 
-            # Handle RTP payload (video frames)
-            # You may need to decode the payload based on the video codec used
-            # and extract individual frames
-
             print()
 
             packet_count += 1
@@ -131,21 +126,22 @@ def handle_rtp_packet(packet):
             latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
 
+def service_detection(ip):
+    nm.scan(ip, arguments="-sV")
+    if nm[ip].state() == "up":
+        print("Open ports:")
+        for port in nm[ip]["tcp"]:
+            if nm[ip]["tcp"][port]["state"] == "open":
+                print(
+                    f"Port {port} - {nm[ip]['tcp'][port]['name']} - {nm[ip]['tcp'][port]['product']}"
+                )
+    else:
+        print("No open ports found for the specified IP.")
+
+
 sniffingTime = input("Sniffing Time (in seconds): ")
 start_time = datetime.now()
 end_time = start_time + timedelta(seconds=int(sniffingTime))
-
-# UDP 및 TCP 패킷 캡처
-sniff(filter="udp or tcp", prn=analyze_packet, timeout=int(sniffingTime))
-
-# 통신 흐름 출력
-for flow, count in communication_flow.items():
-    src, sport, dst, dport, protocol = flow
-    print(f"Flow: {protocol} {src}:{sport} -> {dst}:{dport}, Count: {count}")
-
-#프로토콜 횟수 분석 결과 출력
-for protocol, count in protocol_count.items():
-    print(f"Protocol: {protocol}, Count : {count}")
 
 if iot_ip:
     print("프로그램 시작")
@@ -196,6 +192,18 @@ if iot_ip:
         plt.show()
         print("Packet Size Distribution")
 
+        # Payload Analysis
+        print("Payload Analysis:")
+        for packet in captured_packets:
+            if packet.haslayer(TCP):
+                if packet[TCP].payload:
+                    payload = packet[TCP].payload.load
+                    print("Payload:", payload)
+
+        # Service Detection
+        print("Service Detection:")
+        service_detection(iot_ip)
+
         # Latency Analysis
         src_ips = set()
         dst_ips = set()
@@ -210,67 +218,22 @@ if iot_ip:
         print("Latency Analysis:")
         for src_ip in src_ips:
             for dst_ip in dst_ips:
-                latencies = [
+                rtt = [
                     rtt
                     for src, dst, rtt in latency_values
                     if src == src_ip and dst == dst_ip
                 ]
-                if len(latencies) > 0:
-                    avg_latency = sum(latencies) / len(latencies)
-                    print(f"Average Latency (Source: {src_ip}, Destination: {dst_ip}): {avg_latency} seconds")
-                else:
-                    print(f"No packets found for Source: {src_ip}, Destination: {dst_ip}")
+                print(
+                    f"RTT from {src_ip} to {dst_ip}: Min={min(rtt)}, Max={max(rtt)}, Average={sum(rtt) / len(rtt)}"
+                )
 
-
-        # Visualization - Latency Analysis
-        plt.figure(figsize=(12, 6))
-        plt.plot(rtt_values, marker="o")
-        plt.xlabel("Packet Index")
-        plt.ylabel("Round-trip Time (RTT) in seconds")
-        plt.title("Latency Analysis")
+        # Visualization - Round Trip Time (RTT) Distribution
+        plt.figure(figsize=(8, 6))
+        plt.hist(rtt_values, bins=50)
+        plt.xlabel("Round Trip Time (RTT)")
+        plt.ylabel("Frequency")
+        plt.title("RTT Distribution")
         plt.show()
-
-        # Visualization - Traffic Analysis
-        intervals = []
-        packet_counts = []
-
-        current_time = start_time
-        while current_time <= end_time:
-            next_time = current_time + timedelta(seconds=1)
-            interval_packets = [
-                packet
-                for packet in captured_packets
-                if current_time <= datetime.fromtimestamp(packet.time) <= next_time
-            ]
-            intervals.append(current_time.strftime("%H:%M:%S"))
-            packet_counts.append(len(interval_packets))
-            current_time = next_time
-
-        # Determine the number of x-axis labels to display
-        max_labels = 10
-        num_labels = min(len(intervals), max_labels)
-
-        # Determine the step size for selecting the labels
-        step = max(len(intervals) // num_labels, 1)
-
-        # Select a subset of labels and counts for display
-        selected_intervals = intervals[::step]
-        selected_packet_counts = packet_counts[::step]
-
-        plt.figure(figsize=(12, 6))
-        plt.plot(intervals, packet_counts, marker="o")
-        plt.xlabel("Time")
-        plt.ylabel("Packet Count")
-        plt.title("Traffic Analysis")
-        plt.xticks(rotation=45)
-        plt.xticks(selected_intervals)  # Set the selected labels on the x-axis
-        plt.plot(selected_intervals, selected_packet_counts, marker="o")  # Plot the selected data points
-        plt.show()
-
-        print("Traffic Analysis:")
-        for time, count in zip(selected_intervals, selected_packet_counts):
-            print(f"{time}: {count} packets")
-
 
 else:
-    print("프로그램을 실행할 수 없습니다.")
+    print("No IoT device found in the network.")
