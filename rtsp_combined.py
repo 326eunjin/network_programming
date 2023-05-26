@@ -9,7 +9,6 @@ packet_count = 0
 protocols = Counter()
 captured_packets = []
 latency_values = []
-communication_flow = {}
 
 nm = nmap.PortScanner()
 nm.scan("192.168.35.0/24")
@@ -26,38 +25,6 @@ if iot_ip is None:
 
 print("IoT 기기의 IP 주소:", iot_ip)
 
-# protocol 횟수 카운트
-protocol_count = {}
-
-
-def analyze_packet(packet):
-    if packet.haslayer(IP):
-        if packet.haslayer(UDP):
-            protocol = "UDP"
-            src = packet[IP].src
-            dst = packet[IP].dst
-            sport = packet[UDP].sport
-            dport = packet[UDP].dport
-        elif packet.haslayer(TCP):
-            protocol = "TCP"
-            src = packet[IP].src
-            dst = packet[IP].dst
-            sport = packet[TCP].sport
-            dport = packet[TCP].dport
-        else:
-            return
-
-        flow_key = (src, sport, dst, dport, protocol)
-        if flow_key in communication_flow:
-            communication_flow[flow_key] += 1
-        else:
-            communication_flow[flow_key] = 1
-
-        if protocol in protocol_count:
-            protocol_count[protocol] += 1
-        else:
-            protocol_count[protocol] = 1
-
 
 def handle_tcp_packet(packet):
     global packet_count, protocols, captured_packets, latency_values
@@ -67,6 +34,7 @@ def handle_tcp_packet(packet):
         data = packet[TCP].payload.load if hasattr(packet[TCP].payload, "load") else b""
         print(f"TCP packet: source_port={sport}, destination_port={dport}")
 
+        # Hexdump of packet data
         hexdump(data)
 
         print()
@@ -85,6 +53,7 @@ def handle_udp_packet(packet):
         data = packet[UDP].payload.load if hasattr(packet[UDP].payload, "load") else b""
         print(f"UDP packet: source_port={sport}, destination_port={dport}")
 
+        # Hexdump of packet data
         hexdump(data)
 
         print()
@@ -102,6 +71,7 @@ def handle_rtp_packet(packet):
         if payload:
             print("RTP packet:")
 
+            # Extract RTP header fields
             version = packet[RTP].version
             padding = packet[RTP].padding
             extension = packet[RTP].extension
@@ -117,6 +87,10 @@ def handle_rtp_packet(packet):
             print(f"SSRC: {ssrc}")
             print(f"Timestamp: {timestamp}")
             print(f"Sequence number: {sequence}")
+
+            # Handle RTP payload (video frames)
+            # You may need to decode the payload based on the video codec used
+            # and extract individual frames
 
             print()
 
@@ -232,9 +206,14 @@ if iot_ip:
             packet_counts.append(len(interval_packets))
             current_time = next_time
 
+        # Determine the number of x-axis labels to display
         max_labels = 10
         num_labels = min(len(intervals), max_labels)
+
+        # Determine the step size for selecting the labels
         step = max(len(intervals) // num_labels, 1)
+
+        # Select a subset of labels and counts for display
         selected_intervals = intervals[::step]
         selected_packet_counts = packet_counts[::step]
 
@@ -244,12 +223,16 @@ if iot_ip:
         plt.ylabel("Packet Count")
         plt.title("Traffic Analysis")
         plt.xticks(rotation=45)
-        plt.xticks(selected_intervals)
-        plt.plot(selected_intervals, selected_packet_counts, marker="o")
+        plt.xticks(selected_intervals)  # Set the selected labels on the x-axis
+        plt.plot(
+            selected_intervals, selected_packet_counts, marker="o"
+        )  # Plot the selected data points
         plt.show()
 
         print("Traffic Analysis:")
         for time, count in zip(selected_intervals, selected_packet_counts):
             print(f"{time}: {count} packets")
+
+
 else:
     print("프로그램을 실행할 수 없습니다.")
