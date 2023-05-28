@@ -9,21 +9,25 @@ packet_count = 0
 protocols = Counter()
 captured_packets = []
 latency_values = []
+start_time = datetime.now()
 
-nm = nmap.PortScanner()
-nm.scan("192.168.35.0/24")
 
-iot_ip = None
-for host in nm.all_hosts():
-    if nm[host].has_tcp(554) and nm[host]["tcp"][554]["state"] == "open":
-        iot_ip = host
-        break
+def scan_iot_device():
+    nm = nmap.PortScanner()
+    nm.scan("192.168.35.0/24")
 
-if iot_ip is None:
-    print("IoT 기기를 찾을 수 없습니다.")
-    sys.exit()
+    iot_ip = None
+    for host in nm.all_hosts():
+        if nm[host].has_tcp(554) and nm[host]["tcp"][554]["state"] == "open":
+            iot_ip = host
+            break
 
-print("IoT 기기의 IP 주소:", iot_ip)
+    if iot_ip is None:
+        print("IoT 기기를 찾을 수 없습니다.")
+        sys.exit()
+
+    print("IoT 기기의 IP 주소:", iot_ip)
+    return iot_ip
 
 
 def handle_tcp_packet(packet):
@@ -100,139 +104,151 @@ def handle_rtp_packet(packet):
             latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
 
-sniffingTime = input("Sniffing Time (in seconds): ")
-start_time = datetime.now()
-end_time = start_time + timedelta(seconds=int(sniffingTime))
+def capture_packets(iot_ip, sniffing_time):
+    global start_time, end_time
+    start_time = datetime.now()
+    end_time = start_time + timedelta(seconds=int(sniffing_time))
 
-if iot_ip:
-    print("프로그램 시작")
+    if iot_ip:
+        print("프로그램 시작")
 
-    while datetime.now() <= end_time:
-        sniff(
-            prn=handle_tcp_packet,
-            timeout=1,
-            filter=f"host {iot_ip} and tcp",
-        )
-        sniff(
-            prn=handle_udp_packet,
-            timeout=1,
-            filter=f"host {iot_ip} and udp",
-        )
-        sniff(
-            prn=handle_rtp_packet,
-            timeout=1,
-            filter=f"host {iot_ip} and udp and port 554",
-        )
+        while datetime.now() <= end_time:
+            sniff(
+                prn=handle_tcp_packet,
+                timeout=1,
+                filter=f"host {iot_ip} and tcp",
+            )
+            sniff(
+                prn=handle_udp_packet,
+                timeout=1,
+                filter=f"host {iot_ip} and udp",
+            )
+            sniff(
+                prn=handle_rtp_packet,
+                timeout=1,
+                filter=f"host {iot_ip} and udp and port 554",
+            )
 
-    print("Finish Capture Packet")
-    if packet_count == 0:
-        print("No Packet")
-        sys.exit()
-    else:
-        print("Total Packet:", packet_count)
+        print("Finish Capture Packet")
+        if packet_count == 0:
+            print("No Packet")
+            sys.exit()
+        else:
+            print("Total Packet:", packet_count)
 
-        # Visualization - Protocol Distribution
-        labels = protocols.keys()
-        values = protocols.values()
 
-        plt.figure(figsize=(8, 6))
-        plt.pie(values, labels=labels, autopct="%1.1f%%")
-        plt.title("Protocol Distribution")
-        plt.show()
-        print("Protocol Distribution: ")
-        for label, value in zip(labels, values):
-            print(f"{label}: {value} packets")
+def visualize_protocol_distribution():
+    labels = protocols.keys()
+    values = protocols.values()
 
-        # Visualization - Packet Size Distribution
-        packet_sizes = [len(packet.payload) for packet in captured_packets]
-        plt.figure(figsize=(8, 6))
-        plt.hist(packet_sizes, bins=50)
-        plt.xlabel("Packet Size")
-        plt.ylabel("Frequency")
-        plt.title("Packet Size Distribution")
-        plt.show()
-        print("Packet Size Distribution")
+    plt.figure(figsize=(8, 6))
+    plt.pie(values, labels=labels, autopct="%1.1f%%")
+    plt.title("Protocol Distribution")
+    plt.show()
 
-        # Latency Analysis
-        src_ips = set()
-        dst_ips = set()
-        rtt_values = []
+    print("Protocol Distribution: ")
+    for label, value in zip(labels, values):
+        print(f"{label}: {value} packets")
 
-        for src_ip, dst_ip, timestamp in latency_values:
-            src_ips.add(src_ip)
-            dst_ips.add(dst_ip)
-            rtt = (datetime.fromtimestamp(timestamp) - start_time).total_seconds()
-            rtt_values.append(rtt)
 
-        print("Latency Analysis:")
-        for src_ip in src_ips:
-            for dst_ip in dst_ips:
-                latencies = [
-                    rtt
-                    for src, dst, rtt in latency_values
-                    if src == src_ip and dst == dst_ip
-                ]
-                if len(latencies) > 0:
-                    avg_latency = sum(latencies) / len(latencies)
-                    print(
-                        f"Average Latency (Source: {src_ip}, Destination: {dst_ip}): {avg_latency} seconds"
-                    )
-                else:
-                    print(
-                        f"No packets found for Source: {src_ip}, Destination: {dst_ip}"
-                    )
+def visualize_packet_size_distribution():
+    packet_sizes = [len(packet.payload) for packet in captured_packets]
+    plt.figure(figsize=(8, 6))
+    plt.hist(packet_sizes, bins=50)
+    plt.xlabel("Packet Size")
+    plt.ylabel("Frequency")
+    plt.title("Packet Size Distribution")
+    plt.show()
+    print("Packet Size Distribution")
 
-        # Visualization - Latency Analysis
-        plt.figure(figsize=(12, 6))
-        plt.plot(rtt_values, marker="o")
-        plt.xlabel("Packet Index")
-        plt.ylabel("Round-trip Time (RTT) in seconds")
-        plt.title("Latency Analysis")
-        plt.show()
 
-        # Visualization - Traffic Analysis
-        intervals = []
-        packet_counts = []
+def analyze_latency():
+    src_ips = set()
+    dst_ips = set()
+    rtt_values = []
 
-        current_time = start_time
-        while current_time <= end_time:
-            next_time = current_time + timedelta(seconds=1)
-            interval_packets = [
-                packet
-                for packet in captured_packets
-                if current_time <= datetime.fromtimestamp(packet.time) <= next_time
+    for src_ip, dst_ip, timestamp in latency_values:
+        src_ips.add(src_ip)
+        dst_ips.add(dst_ip)
+        rtt = (datetime.fromtimestamp(timestamp) - start_time).total_seconds()
+        rtt_values.append(rtt)
+
+    print("Latency Analysis:")
+    for src_ip in src_ips:
+        for dst_ip in dst_ips:
+            latencies = [
+                rtt
+                for src, dst, rtt in latency_values
+                if src == src_ip and dst == dst_ip
             ]
-            intervals.append(current_time.strftime("%H:%M:%S"))
-            packet_counts.append(len(interval_packets))
-            current_time = next_time
+            if len(latencies) > 0:
+                avg_latency = sum(latencies) / len(latencies)
+                print(
+                    f"Average Latency (Source: {src_ip}, Destination: {dst_ip}): {avg_latency} seconds"
+                )
+            else:
+                print(f"No packets found for Source: {src_ip}, Destination: {dst_ip}")
 
-        # Determine the number of x-axis labels to display
-        max_labels = 10
-        num_labels = min(len(intervals), max_labels)
-
-        # Determine the step size for selecting the labels
-        step = max(len(intervals) // num_labels, 1)
-
-        # Select a subset of labels and counts for display
-        selected_intervals = intervals[::step]
-        selected_packet_counts = packet_counts[::step]
-
-        plt.figure(figsize=(12, 6))
-        plt.plot(intervals, packet_counts, marker="o")
-        plt.xlabel("Time")
-        plt.ylabel("Packet Count")
-        plt.title("Traffic Analysis")
-        plt.xticks(rotation=45)
-        plt.xticks(selected_intervals)  # Set the selected labels on the x-axis
-        plt.plot(
-            selected_intervals, selected_packet_counts, marker="o"
-        )  # Plot the selected data points
-        plt.show()
-
-        print("Traffic Analysis:")
-        for time, count in zip(selected_intervals, selected_packet_counts):
-            print(f"{time}: {count} packets")
+    plt.figure(figsize=(12, 6))
+    plt.plot(rtt_values, marker="o")
+    plt.xlabel("Packet Index")
+    plt.ylabel("Round-trip Time (RTT) in seconds")
+    plt.title("Latency Analysis")
+    plt.show()
 
 
-else:
-    print("프로그램을 실행할 수 없습니다.")
+def visualize_traffic_analysis():
+    intervals = []
+    packet_counts = []
+
+    current_time = start_time
+    while current_time <= end_time:
+        next_time = current_time + timedelta(seconds=1)
+        interval_packets = [
+            packet
+            for packet in captured_packets
+            if current_time <= datetime.fromtimestamp(packet.time) <= next_time
+        ]
+        intervals.append(current_time.strftime("%H:%M:%S"))
+        packet_counts.append(len(interval_packets))
+        current_time = next_time
+
+    max_labels = 10
+    num_labels = min(len(intervals), max_labels)
+    step = max(len(intervals) // num_labels, 1)
+    selected_intervals = intervals[::step]
+    selected_packet_counts = packet_counts[::step]
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(intervals, packet_counts, marker="o")
+    plt.xlabel("Time")
+    plt.ylabel("Packet Count")
+    plt.title("Traffic Analysis")
+    plt.xticks(rotation=45)
+    plt.xticks(selected_intervals)
+    plt.plot(selected_intervals, selected_packet_counts, marker="o")
+    plt.show()
+
+    print("Traffic Analysis:")
+    for time, count in zip(selected_intervals, selected_packet_counts):
+        print(f"{time}: {count} packets")
+
+
+def main():
+    iot_ip = scan_iot_device()
+    sniffing_time = input("Sniffing Time (in seconds): ")
+
+    capture_packets(iot_ip, sniffing_time)
+
+    if packet_count == 0:
+        print("No packets captured.")
+        sys.exit()
+
+    visualize_protocol_distribution()
+    visualize_packet_size_distribution()
+    analyze_latency()
+    visualize_traffic_analysis()
+
+
+if __name__ == "__main__":
+    main()
