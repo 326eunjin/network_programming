@@ -5,19 +5,21 @@ from scapy.all import *
 import matplotlib.pyplot as plt
 from collections import Counter
 
-packet_count = 0
-protocols = Counter()
-captured_packets = []
-latency_values = []
-start_time = datetime.now()
+# 전역 변수 초기화
+packet_count = 0  # 캡처된 패킷 수를 저장하는 변수
+protocols = Counter()  # 프로토콜별 패킷 수를 저장하는 Counter 객체
+captured_packets = []  # 캡처된 패킷을 저장하는 리스트
+latency_values = []  # 패킷의 지연 시간 정보를 저장하는 리스트
+start_time = datetime.now()  # 패킷 캡처 시작 시간을 저장하는 변수
 
-
+# IoT 디바이스를 검색하는 함수
 def scan_iot_device():
     nm = nmap.PortScanner()
     nm.scan("192.168.35.0/24")
 
     iot_ip = None
     for host in nm.all_hosts():
+        # 포트 554에서 TCP 연결이 열린 경우 IoT 디바이스로 가정
         if nm[host].has_tcp(554) and nm[host]["tcp"][554]["state"] == "open":
             iot_ip = host
             break
@@ -29,16 +31,16 @@ def scan_iot_device():
     print("IoT 기기의 IP 주소:", iot_ip)
     return iot_ip
 
-
+# TCP 패킷을 처리하는 함수
 def handle_tcp_packet(packet):
     global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(TCP):
         sport = packet[TCP].sport
         dport = packet[TCP].dport
         data = packet[TCP].payload.load if hasattr(packet[TCP].payload, "load") else b""
-        print(f"TCP packet: source_port={sport}, destination_port={dport}")
+        print(f"TCP 패킷: 소스 포트={sport}, 목적지 포트={dport}")
 
-        # Hexdump of packet data
+        # 패킷 데이터의 16진수 덤프 출력
         hexdump(data)
 
         print()
@@ -48,16 +50,16 @@ def handle_tcp_packet(packet):
         captured_packets.append(packet)
         latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
-
+# UDP 패킷을 처리하는 함수
 def handle_udp_packet(packet):
     global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(UDP):
         sport = packet[UDP].sport
         dport = packet[UDP].dport
         data = packet[UDP].payload.load if hasattr(packet[UDP].payload, "load") else b""
-        print(f"UDP packet: source_port={sport}, destination_port={dport}")
+        print(f"UDP 패킷: 소스 포트={sport}, 목적지 포트={dport}")
 
-        # Hexdump of packet data
+        # 패킷 데이터의 16진수 덤프 출력
         hexdump(data)
 
         print()
@@ -67,15 +69,15 @@ def handle_udp_packet(packet):
         captured_packets.append(packet)
         latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
-
+# RTP 패킷을 처리하는 함수
 def handle_rtp_packet(packet):
     global packet_count, protocols, captured_packets, latency_values
     if packet.haslayer(RTP):
         payload = packet[RTP].payload
         if payload:
-            print("RTP packet:")
+            print("RTP 패킷:")
 
-            # Extract RTP header fields
+            # RTP 헤더 필드 추출
             version = packet[RTP].version
             padding = packet[RTP].padding
             extension = packet[RTP].extension
@@ -84,17 +86,16 @@ def handle_rtp_packet(packet):
             timestamp = packet[RTP].timestamp
             sequence = packet[RTP].seq
 
-            print(f"Version: {version}")
-            print(f"Padding: {padding}")
-            print(f"Extension: {extension}")
-            print(f"Marker: {marker}")
+            print(f"버전: {version}")
+            print(f"패딩: {padding}")
+            print(f"확장: {extension}")
+            print(f"마커: {marker}")
             print(f"SSRC: {ssrc}")
-            print(f"Timestamp: {timestamp}")
-            print(f"Sequence number: {sequence}")
+            print(f"타임스탬프: {timestamp}")
+            print(f"시퀀스 번호: {sequence}")
 
-            # Handle RTP payload (video frames)
-            # You may need to decode the payload based on the video codec used
-            # and extract individual frames
+            # RTP 페이로드 (비디오 프레임) 처리
+            # 사용된 비디오 코덱에 따라 페이로드를 디코딩하고 개별 프레임을 추출해야 할 수도 있습니다.
 
             print()
 
@@ -103,7 +104,7 @@ def handle_rtp_packet(packet):
             captured_packets.append(packet)
             latency_values.append((packet[IP].src, packet[IP].dst, packet.time))
 
-
+# 패킷을 캡처하는 함수
 def capture_packets(iot_ip, sniffing_time):
     global start_time, end_time
     start_time = datetime.now()
@@ -129,39 +130,39 @@ def capture_packets(iot_ip, sniffing_time):
                 filter=f"host {iot_ip} and udp and port 554",
             )
 
-        print("Finish Capture Packet")
+        print("패킷 캡처 완료")
         if packet_count == 0:
-            print("No Packet")
+            print("캡처된 패킷이 없습니다.")
             sys.exit()
         else:
-            print("Total Packet:", packet_count)
+            print("총 패킷 수:", packet_count)
 
-
+# 프로토콜 분포 시각화 함수
 def visualize_protocol_distribution():
     labels = protocols.keys()
     values = protocols.values()
 
     plt.figure(figsize=(8, 6))
     plt.pie(values, labels=labels, autopct="%1.1f%%")
-    plt.title("Protocol Distribution")
+    plt.title("프로토콜 분포")
     plt.show()
 
-    print("Protocol Distribution: ")
+    print("프로토콜 분포:")
     for label, value in zip(labels, values):
-        print(f"{label}: {value} packets")
+        print(f"{label}: {value} 패킷")
 
-
+# 패킷 크기 분포 시각화 함수
 def visualize_packet_size_distribution():
     packet_sizes = [len(packet.payload) for packet in captured_packets]
     plt.figure(figsize=(8, 6))
     plt.hist(packet_sizes, bins=50)
-    plt.xlabel("Packet Size")
-    plt.ylabel("Frequency")
-    plt.title("Packet Size Distribution")
+    plt.xlabel("패킷 크기")
+    plt.ylabel("빈도")
+    plt.title("패킷 크기 분포")
     plt.show()
-    print("Packet Size Distribution")
+    print("패킷 크기 분포")
 
-
+# 지연 시간 분석 함수
 def analyze_latency():
     src_ips = set()
     dst_ips = set()
@@ -173,7 +174,7 @@ def analyze_latency():
         rtt = (datetime.fromtimestamp(timestamp) - start_time).total_seconds()
         rtt_values.append(rtt)
 
-    print("Latency Analysis:")
+    print("지연 시간 분석:")
     for src_ip in src_ips:
         for dst_ip in dst_ips:
             latencies = [
@@ -184,19 +185,19 @@ def analyze_latency():
             if len(latencies) > 0:
                 avg_latency = sum(latencies) / len(latencies)
                 print(
-                    f"Average Latency (Source: {src_ip}, Destination: {dst_ip}): {avg_latency} seconds"
+                    f"평균 지연 시간 (출발지: {src_ip}, 목적지: {dst_ip}): {avg_latency} 초"
                 )
             else:
-                print(f"No packets found for Source: {src_ip}, Destination: {dst_ip}")
+                print(f"출발지: {src_ip}, 목적지: {dst_ip}에 대한 패킷이 발견되지 않았습니다.")
 
     plt.figure(figsize=(12, 6))
     plt.plot(rtt_values, marker="o")
-    plt.xlabel("Packet Index")
-    plt.ylabel("Round-trip Time (RTT) in seconds")
-    plt.title("Latency Analysis")
+    plt.xlabel("패킷 인덱스")
+    plt.ylabel("왕복 시간 (RTT, Round-trip Time) (초)")
+    plt.title("지연 시간 분석")
     plt.show()
 
-
+# 트래픽 분석 시각화 함수
 def visualize_traffic_analysis():
     intervals = []
     packet_counts = []
@@ -221,34 +222,36 @@ def visualize_traffic_analysis():
 
     plt.figure(figsize=(12, 6))
     plt.plot(intervals, packet_counts, marker="o")
-    plt.xlabel("Time")
-    plt.ylabel("Packet Count")
-    plt.title("Traffic Analysis")
+    plt.xlabel("시간")
+    plt.ylabel("패킷 수")
+    plt.title("트래픽 분석")
     plt.xticks(rotation=45)
     plt.xticks(selected_intervals)
     plt.plot(selected_intervals, selected_packet_counts, marker="o")
     plt.show()
 
-    print("Traffic Analysis:")
+    print("트래픽 분석:")
     for time, count in zip(selected_intervals, selected_packet_counts):
-        print(f"{time}: {count} packets")
-
+        print(f"{time}: {count} 패킷")
 
 def main():
-    iot_ip = scan_iot_device()
-    sniffing_time = input("Sniffing Time (in seconds): ")
+    iot_ip = scan_iot_device()  # IoT 디바이스 스캔 및 IP 주소 가져오기
+    sniffing_time = input("캡처 시간 (초): ")  # 캡처 시간 입력
 
-    capture_packets(iot_ip, sniffing_time)
+    capture_packets(iot_ip, sniffing_time)  # 패킷 캡처
 
     if packet_count == 0:
-        print("No packets captured.")
+        print("캡처된 패킷이 없습니다.")
         sys.exit()
-
-    visualize_protocol_distribution()
-    visualize_packet_size_distribution()
-    analyze_latency()
-    visualize_traffic_analysis()
-
+    # 한글 폰트 사용을 위해서 세팅
+    from matplotlib import font_manager, rc
+    font_path = "/System/Library/Fonts/Supplemental/AppleGothic.ttf"
+    font = font_manager.FontProperties(fname=font_path).get_name()
+    rc('font', family=font)
+    visualize_protocol_distribution()  # 프로토콜 분포 시각화
+    visualize_packet_size_distribution()  # 패킷 크기 분포 시각화
+    analyze_latency()  # 지연 시간 분석
+    visualize_traffic_analysis()  # 트래픽 분석 시각화
 
 if __name__ == "__main__":
     main()
