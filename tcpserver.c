@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
             errPrint("accept");
             continue;
         }
-        printf("클라이언트 %s:%d가 연결되었습니다...\n", inet_ntoa(clntAddr.sin_addr),
+        printf("Working Server %s:%d가 연결되었습니다...\n", inet_ntoa(clntAddr.sin_addr),
                ntohs(clntAddr.sin_port));
         pid = fork();
         if (pid == 0) { /* 자식 프로세스 */
@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
             // 도전 값을 클라이언트에게 전송
             write(clntSd, challenge, strlen(challenge));
 
-            printf("난이도와 도전 값을 클라이언트에게 전송하였습니다.\n");
+            printf("난이도와 도전 값을 Working Server에 전송하였습니다.\n");
 
             close(clntSd);
             return 0;
@@ -96,6 +96,6 @@ void child_handler(int signo) {
     int stat;
     // 자식 프로세스 상태 반환
     while ((pid = wait(&stat)) > 0)
-        printf("자식/클라이언트(%d)가 종료되었습니다.\n", pid);
+        printf("Working Server(%d)가 종료되었습니다.\n", pid);
     return;
 }
