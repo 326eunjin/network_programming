@@ -7,7 +7,7 @@
 
 #define MAX_PROCESSES 8
 
-void calculate_hash(const char *input, const unsigned int nonce, unsigned char *hash) {
+void calculate_hash(const char *input, unsigned int nonce, unsigned char *hash) {
     char data[256];
     snprintf(data, sizeof(data), "%s%u", input, nonce);
 
@@ -31,7 +31,7 @@ int check_difficulty(unsigned char *hash, const int difficulty) {
     return count >= difficulty;
 }
 
-void find_nonce(const char *input, const int difficulty, const unsigned int start_nonce, const unsigned int end_nonce) {
+void find_nonce(const int write_fd, const char *input, const int difficulty, const unsigned int start_nonce, const unsigned int end_nonce) {
     unsigned int nonce = start_nonce;
     unsigned char hash[SHA256_DIGEST_LENGTH];
 
@@ -39,21 +39,21 @@ void find_nonce(const char *input, const int difficulty, const unsigned int star
         calculate_hash(input, nonce, hash);
 
         if (check_difficulty(hash, difficulty)) {
-            printf("Hash: ");
-            for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-                printf("%02x", hash[i]);
-            }
-            printf("\nNonce: %u\n", nonce);
-            exit(0);
+            write(write_fd, &nonce, sizeof(unsigned int)); // Write the nonce to the pipe
+            close(write_fd);
+            return;
         }
 
         nonce++;
     }
+
+    close(write_fd);
 }
 
 int main() {
     int difficulty;
     char input[256];
+    unsigned int nonce;
 
     printf("Enter the difficulty: ");
     scanf("%d", &difficulty);
@@ -72,12 +72,18 @@ int main() {
 
     unsigned int num_nonce_per_process = (UINT32_MAX + 1) / num_processes;
     pid_t pids[MAX_PROCESSES];
+    int pipes[MAX_PROCESSES][2];
 
     printf("Difficulty: %d\n", difficulty);
     printf("Challenge: %s\n", input);
     printf("Number of processes: %u\n", num_processes);
 
     for (unsigned int i = 0; i < num_processes; i++) {
+        if (pipe(pipes[i]) == -1) {
+            fprintf(stderr, "Failed to create pipe.\n");
+            return 1;
+        }
+
         unsigned int start_nonce = i * num_nonce_per_process;
         unsigned int end_nonce = (i + 1) * num_nonce_per_process - 1;
 
@@ -91,16 +97,25 @@ int main() {
             fprintf(stderr, "Fork failed.\n");
             return 1;
         } else if (pid == 0) {
-            find_nonce(input, difficulty, start_nonce, end_nonce);
+            close(pipes[i][0]); // Close the read end of the pipe in the child process
+            find_nonce(pipes[i][1], input, difficulty, start_nonce, end_nonce);
             exit(0);
         } else {
+            close(pipes[i][1]); // Close the write end of the pipe in the parent process
             pids[i] = pid;
         }
     }
 
     for (unsigned int i = 0; i < num_processes; i++) {
-        waitpid(pids[i], NULL, 0);
+        if (read(pipes[i][0], &nonce, sizeof(unsigned int)) != -1) {
+            break;
+        }
     }
 
+    for (unsigned int i = 0; i < num_processes; i++) {
+        close(pipes[i][0]); // Close the read end of the pipe in the parent process
+    }
+
+    printf("Nonce: %u\n", nonce);
     return 0;
 }
