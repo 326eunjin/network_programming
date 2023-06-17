@@ -16,7 +16,7 @@ void errPrint(const char *str);
 void child_handler(int signum);
 
 int main(int argc, char **argv) {
-    
+
     int srvSd, clntSd;
     struct sockaddr_in srvAddr, clntAddr;
     int clntAddrLen, strLen;
@@ -59,8 +59,6 @@ int main(int argc, char **argv) {
     int nonce = 0;
     double start_time, end_time, elapsed_time;
 
-    
-
     while (1) {
         clntSd = accept(srvSd, (struct sockaddr *)&clntAddr, &clntAddrLen);
         if (clntSd == -1) {
@@ -89,7 +87,20 @@ int main(int argc, char **argv) {
             // nonce 값을 클라이언트로부터 받음
             read(clntSd, &nonce_received, sizeof(nonce_received));
 
+            // 클라이언트로부터 받은 nonce 값 출력
+            printf("클라이언트로부터 받은 nonce 값: %d\n", nonce_received);
+
             close(clntSd);
+
+            // nonce 값을 받았을 때 시간 측정 종료
+            if (nonce_received > 0 && nonce == 0) {
+                nonce = nonce_received;
+                end_time = clock();
+                elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
+                printf("nonce 값(%d)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
+            }
+
             return 0;
         } else if (pid == -1)
             errProc("fork");
@@ -102,14 +113,6 @@ int main(int argc, char **argv) {
                 start_time = clock();
             }
         }
-    }
-
-    // nonce 값에 대한 시간을 계산
-    if (nonce > 0) {
-        end_time = clock();
-        elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-
-        printf("nonce 값(%d)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
     }
 
     return 0;
