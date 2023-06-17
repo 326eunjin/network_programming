@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
     sigaction(SIGCHLD, &sa, NULL);
 
     int num_clients = 2; // 클라이언트 수
-    int nonce_received = 0;
-    int nonce = 0;
+    unsigned int nonce_received = 0;
+    unsigned int nonce = 0;
     double start_time, end_time, elapsed_time;
 
     while (1) {
