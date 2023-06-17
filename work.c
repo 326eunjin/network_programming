@@ -100,24 +100,28 @@ int main(int argc, char **argv)
     // 서버에서 전송한 challenge와 난이도 받기
     while (1)
     {
-        // Challenge and difficulty reading
-        memset(challenge, 0, sizeof(challenge));
-        if (read(clntSd, challenge, sizeof(challenge)) == -1)
+        if (count == 0)
         {
-            perror("read");
-            exit(1);
+            // Challenge and difficulty reading
+            memset(challenge, 0, sizeof(challenge));
+            if (read(clntSd, challenge, sizeof(challenge) - 1) == -1)
+            {
+                perror("read");
+                exit(1);
+            }
+            count++;
+            printf("challenge: %s\n", challenge);
         }
-        count++;
-        printf("challenge: %s\n", challenge);
 
-        memset(&difficulty, 0, sizeof(int));
-        if (read(clntSd, &difficulty, sizeof(int)) == -1)
+        if(count == 1)
         {
-            perror("read");
-            exit(1);
+            if (read(clntSd, &difficulty, sizeof(int)) == -1)
+            {
+                perror("read");
+                exit(1);
+            }
+            printf("difficulty: %d\n", difficulty);
         }
-        printf("difficulty: %d\n", difficulty);
-
         // nonce 값 계산
         for (unsigned int i = 0; i < 8; i++)
         {
