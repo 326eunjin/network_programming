@@ -52,7 +52,7 @@ int main(int argc, char **argv){
 	int count = 0;
 	struct sockaddr_in clnt_addr;
 	char challenge[BUFSIZE]; // 챌린지값 저장
-	char difficulty[BUFSIZE]; // 난이도 저장 (문자열 아님 정수?)
+	int difficulty;
 	// int difficulty;
 
 	clntSd = socket(AF_INET, SOCK_STREAM, 0); // 클라이언트 소켓
@@ -82,7 +82,7 @@ int main(int argc, char **argv){
 			exit(1);
 		}
 		count++;
-		printf("challenge: %s", challenge);
+		printf("challenge: %s\n", challenge);
 		}
 		if (count == 1) { // 난이도 
 		memset(difficulty, 0, sizeof(difficulty));
@@ -90,7 +90,7 @@ int main(int argc, char **argv){
 			perror("read");
 			exit(1);
 		}
-		printf("diffuculty: %s", difficulty);
+		printf("difficulty: %d\n", difficulty);
 		}
 	}
 
