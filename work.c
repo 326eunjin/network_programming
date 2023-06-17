@@ -10,10 +10,10 @@
 #define BUFSIZE 256
 #define MAX_PROCESSES 4
 
-void calculate_hash(const char *input, unsigned int nonce, unsigned char *hash)
+void calculate_hash(const char *challenge, unsigned int nonce, unsigned char *hash)
 {
 	char data[256];
-	snprintf(data, sizeof(data), "%s%u", input, nonce);
+	snprintf(data, sizeof(data), "%s%u", challenge, nonce);
 
 	SHA256((unsigned char *)data, strlen(data), hash);
 }
@@ -41,14 +41,14 @@ int check_difficulty(unsigned char *hash, const int difficulty)
 	return count >= difficulty;
 }
 
-void find_nonce(const int write_fd, const char *input, const int difficulty, const unsigned int start_nonce, const unsigned int end_nonce)
+void find_nonce(const int write_fd, const char *challenge, const int difficulty, const unsigned int start_nonce, const unsigned int end_nonce)
 {
 	unsigned int nonce = start_nonce;
 	unsigned char hash[SHA256_DIGEST_LENGTH];
 
 	while (nonce <= end_nonce)
 	{
-		calculate_hash(input, nonce, hash);
+		calculate_hash(challenge, nonce, hash);
 
 		if (check_difficulty(hash, difficulty))
 		{
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 	char challenge[BUFSIZE]; // 챌린지값 저장
 	int difficulty;
 
-	unsigned int num_nonce_per_process = (UINT32_MAX + 1) / num_processes;
+	unsigned int num_nonce_per_process = (UINT32_MAX + 1) / 8;
 	pid_t pids[8];
 	int pipes[8][2];
 
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	}
 
 	// nonce 값 계산
-	for (unsigned int i = 0; i < num_processes; i++)
+	for (unsigned int i = 0; i < 8; i++)
 	{
 		if (pipe(pipes[i]) == -1)
 		{
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 		unsigned int start_nonce = i * num_nonce_per_process;
 		unsigned int end_nonce = (i + 1) * num_nonce_per_process - 1;
 
-		if (i == num_processes - 1)
+		if (i == 8 - 1)
 		{
 			end_nonce = UINT32_MAX;
 		}
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 		else if (pid == 0)
 		{
 			close(pipes[i][0]); // Close the read end of the pipe in the child process
-			find_nonce(pipes[i][1], input, difficulty, start_nonce, end_nonce);
+			find_nonce(pipes[i][1], challenge, difficulty, start_nonce, end_nonce);
 			exit(0);
 		}
 		else
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for (unsigned int i = 0; i < num_processes; i++)
+	for (unsigned int i = 0; i < 8; i++)
 	{
 		if (read(pipes[i][0], &nonce, sizeof(unsigned int)) != -1)
 		{
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for (unsigned int i = 0; i < num_processes; i++)
+	for (unsigned int i = 0; i < 8; i++)
 	{
 		close(pipes[i][0]); // Close the read end of the pipe in the parent process
 	}
