@@ -3,82 +3,103 @@
 #include <string.h>
 #include <unistd.h>
 #include <openssl/sha.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
-#include <openssl/crypto.h>
-#include <openssl/bio.h>
+#include <sys/wait.h>
 
-#define MAX_PROCESSES 4
+#define MAX_PROCESSES 8
 
-typedef struct {
-    unsigned char input[256];
-    unsigned int difficulty;
-    unsigned int startNonce;
-    unsigned int endNonce;
-} PowTask;
+void calculate_hash(const char *input, const unsigned int nonce, unsigned char *hash) {
+    char data[256];
+    snprintf(data, sizeof(data), "%s%u", input, nonce);
 
-void calculatePoW(const unsigned char *input, unsigned int difficulty, unsigned int startNonce, unsigned int endNonce) {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    unsigned char target[SHA256_DIGEST_LENGTH];
-    unsigned int nonce;
+    SHA256((unsigned char *)data, strlen(data), hash);
+}
 
-    // Set the target hash based on the difficulty
-    memset(target, 0xFF, sizeof(target));
-    for (unsigned int i = 0; i < difficulty; i++) {
-        target[i / 8] &= ~(1 << (i % 8));
-    }
-
-    // Perform the proof of work calculation
-    for (nonce = startNonce; nonce <= endNonce; nonce++) {
-        unsigned char data[256 + sizeof(nonce)];
-        memcpy(data, input, strlen((char*)input));
-        memcpy(data + strlen((char*)input), &nonce, sizeof(nonce));
-        SHA256(data, strlen((char*)input) + sizeof(nonce), hash);
-
-        if (memcmp(hash, target, difficulty / 8) == 0) {
-            printf("PoW found! Nonce: %u\n", nonce);
+int check_difficulty(unsigned char *hash, const int difficulty) {
+    int count = 0;
+    for (int i = 0; i < difficulty / 2; i++) {
+        if (hash[i] == 0) {
+            count += 2;
+        } else {
             break;
         }
+    }
+
+    if (difficulty % 2 == 1 && (hash[difficulty / 2] & 0xF0) == 0) {
+        count++;
+    }
+
+    return count >= difficulty;
+}
+
+void find_nonce(const char *input, const int difficulty, const unsigned int start_nonce, const unsigned int end_nonce) {
+    unsigned int nonce = start_nonce;
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+
+    while (nonce <= end_nonce) {
+        calculate_hash(input, nonce, hash);
+
+        if (check_difficulty(hash, difficulty)) {
+            printf("Hash: ");
+            for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+                printf("%02x", hash[i]);
+            }
+            printf("\nNonce: %u\n", nonce);
+            exit(0);
+        }
+
+        nonce++;
     }
 }
 
 int main() {
-    unsigned char input[256];
-    unsigned int difficulty;
-
-    printf("Enter the input: ");
-    fgets((char*)input, sizeof(input), stdin);
-    input[strcspn((char*)input, "\n")] = 0;
+    int difficulty;
+    char input[256];
 
     printf("Enter the difficulty: ");
-    scanf("%u", &difficulty);
+    scanf("%d", &difficulty);
 
-    // Calculate the workload for each process
-    unsigned int range = UINT_MAX / MAX_PROCESSES;
-    PowTask tasks[MAX_PROCESSES];
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        tasks[i].startNonce = i * range;
-        tasks[i].endNonce = (i + 1) * range - 1;
-        tasks[i].difficulty = difficulty;
-        memcpy(tasks[i].input, input, sizeof(input));
+    printf("Enter the challenge: ");
+    scanf("%s", input);
+
+    unsigned int num_processes;
+    printf("Enter the number of processes (1-%d): ", MAX_PROCESSES);
+    scanf("%u", &num_processes);
+
+    if (num_processes > MAX_PROCESSES) {
+        printf("Invalid number of processes. Setting to the maximum value (%d).\n", MAX_PROCESSES);
+        num_processes = MAX_PROCESSES;
     }
 
-    // Fork multiple processes and perform PoW calculation in parallel
-    for (int i = 0; i < MAX_PROCESSES; i++) {
+    unsigned int num_nonce_per_process = (UINT32_MAX + 1) / num_processes;
+    pid_t pids[MAX_PROCESSES];
+
+    printf("Difficulty: %d\n", difficulty);
+    printf("Challenge: %s\n", input);
+    printf("Number of processes: %u\n", num_processes);
+
+    for (unsigned int i = 0; i < num_processes; i++) {
+        unsigned int start_nonce = i * num_nonce_per_process;
+        unsigned int end_nonce = (i + 1) * num_nonce_per_process - 1;
+
+        if (i == num_processes - 1) {
+            end_nonce = UINT32_MAX;
+        }
+
         pid_t pid = fork();
 
-        if (pid == 0) {  // Child process
-            calculatePoW(tasks[i].input, tasks[i].difficulty, tasks[i].startNonce, tasks[i].endNonce);
+        if (pid < 0) {
+            fprintf(stderr, "Fork failed.\n");
+            return 1;
+        } else if (pid == 0) {
+            find_nonce(input, difficulty, start_nonce, end_nonce);
             exit(0);
-        } else if (pid < 0) {  // Forking error
-            fprintf(stderr, "Forking error\n");
-            exit(1);
+        } else {
+            pids[i] = pid;
         }
     }
 
-    // Wait for all child processes to finish
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        wait(NULL);
+    for (unsigned int i = 0; i < num_processes; i++) {
+        waitpid(pids[i], NULL, 0);
     }
 
     return 0;
