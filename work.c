@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 		close(clntSd);
 		exit(1);
 	}
-
+	printf("통신완료\n");
 	// 서버에서 전송한 challenge와 난이도 받기
 	while (1)
 	{
@@ -121,65 +121,64 @@ int main(int argc, char **argv)
 			}
 			printf("difficulty: %d\n", difficulty);
 		}
+
+		// nonce 값 계산
+		for (unsigned int i = 0; i < 8; i++)
+		{
+			if (pipe(pipes[i]) == -1)
+			{
+				fprintf(stderr, "Failed to create pipe.\n");
+				return 1;
+			}
+
+			unsigned int start_nonce = i * num_nonce_per_process;
+			unsigned int end_nonce = (i + 1) * num_nonce_per_process - 1;
+
+			if (i == 8 - 1)
+			{
+				end_nonce = UINT32_MAX;
+			}
+
+			pid_t pid = fork();
+
+			if (pid < 0)
+			{
+				fprintf(stderr, "Fork failed.\n");
+				return 1;
+			}
+			else if (pid == 0)
+			{
+				close(pipes[i][0]); // Close the read end of the pipe in the child process
+				find_nonce(pipes[i][1], challenge, difficulty, start_nonce, end_nonce);
+				exit(0);
+			}
+			else
+			{
+				close(pipes[i][1]); // Close the write end of the pipe in the parent process
+				pids[i] = pid;
+			}
+		}
+
+		for (unsigned int i = 0; i < 8; i++)
+		{
+			if (read(pipes[i][0], &nonce, sizeof(unsigned int)) != -1)
+			{
+				break;
+			}
+		}
+
+		for (unsigned int i = 0; i < 8; i++)
+		{
+			close(pipes[i][0]); // Close the read end of the pipe in the parent process
+		}
+
+		// 서버로 nonce 값 전송
+		if (write(clntSd, nonce, sizeof(nonce)) == -1)
+		{
+			perror("write");
+			exit(1);
+		}
 	}
-
-	// nonce 값 계산
-	for (unsigned int i = 0; i < 8; i++)
-	{
-		if (pipe(pipes[i]) == -1)
-		{
-			fprintf(stderr, "Failed to create pipe.\n");
-			return 1;
-		}
-
-		unsigned int start_nonce = i * num_nonce_per_process;
-		unsigned int end_nonce = (i + 1) * num_nonce_per_process - 1;
-
-		if (i == 8 - 1)
-		{
-			end_nonce = UINT32_MAX;
-		}
-
-		pid_t pid = fork();
-
-		if (pid < 0)
-		{
-			fprintf(stderr, "Fork failed.\n");
-			return 1;
-		}
-		else if (pid == 0)
-		{
-			close(pipes[i][0]); // Close the read end of the pipe in the child process
-			find_nonce(pipes[i][1], challenge, difficulty, start_nonce, end_nonce);
-			exit(0);
-		}
-		else
-		{
-			close(pipes[i][1]); // Close the write end of the pipe in the parent process
-			pids[i] = pid;
-		}
-	}
-
-	for (unsigned int i = 0; i < 8; i++)
-	{
-		if (read(pipes[i][0], &nonce, sizeof(unsigned int)) != -1)
-		{
-			break;
-		}
-	}
-
-	for (unsigned int i = 0; i < 8; i++)
-	{
-		close(pipes[i][0]); // Close the read end of the pipe in the parent process
-	}
-
-	// 서버로 nonce 값 전송
-	if (write(clntSd, nonce, sizeof(nonce)) == -1)
-	{
-		perror("write");
-		exit(1);
-	}
-
 	close(clntSd);
 
 	return 0;
