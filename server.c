@@ -9,14 +9,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <time.h>
+#include <time.h> // 시간 관련 헤더 추가
 
 void errProc(const char *str);
 void errPrint(const char *str);
 void child_handler(int signum);
 
 int main(int argc, char **argv) {
-
     int srvSd, clntSd;
     struct sockaddr_in srvAddr, clntAddr;
     int clntAddrLen, strLen;
@@ -57,8 +56,9 @@ int main(int argc, char **argv) {
     int num_clients = 2; // 클라이언트 수
     unsigned int nonce_received = 0;
     unsigned int nonce = 0;
-    double start_time, end_time, elapsed_time;
     int nonce_received_count = 0; // nonce 값을 받은 클라이언트 수
+
+    time_t start_time = time(NULL); // 시작 시간 저장
 
     while (nonce_received_count < num_clients) {
         clntSd = accept(srvSd, (struct sockaddr *)&clntAddr, &clntAddrLen);
@@ -90,18 +90,19 @@ int main(int argc, char **argv) {
 
             // 클라이언트로부터 받은 nonce 값 출력
             printf("클라이언트로부터 받은 nonce 값: %u\n", nonce_received);
+                time_t end_time = time(NULL); // 종료 시간 저장
+    time_t elapsed_time = end_time - start_time; // 경과 시간 계산
 
+    printf("클라이언트로부터 난이도 값을 보내는데 걸린 시간: %ld초\n", elapsed_time);
             close(clntSd);
 
-            // nonce 값을 받았을 때 시간 측정 종료
+            // nonce 값을 받았을 때 처리
             if (nonce_received > 0 && nonce == 0) {
                 nonce = nonce_received;
-                end_time = clock();
-                elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-
-                printf("nonce 값(%u)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
-		kill(pid, SIGTERM);
-
+                printf("nonce 값(%u)에 대한 처리...\n", nonce);
+                // 처리 작업 수행
+                // ...
+                kill(pid, SIGTERM);
                 // 프로그램 종료
                 return 0;
             }
@@ -115,13 +116,20 @@ int main(int argc, char **argv) {
         else { /* 부모 프로세스 */
             close(clntSd);
 
-            // nonce 값을 받았을 때 시간 측정 시작
+            // nonce 값을 받았을 때 처리 시작
             if (nonce_received > 0 && nonce == 0) {
                 nonce = nonce_received;
-                start_time = clock();
+                printf("nonce 값(%u)에 대한 처리 시작...\n", nonce);
+                // 처리 작업 시작
+                // ...
             }
         }
     }
+
+    // time_t end_time = time(NULL); // 종료 시간 저장
+    // time_t elapsed_time = end_time - start_time; // 경과 시간 계산
+
+    // printf("클라이언트로부터 난이도 값을 보내는데 걸린 시간: %ld초\n", elapsed_time);
 
     return 0;
 }
