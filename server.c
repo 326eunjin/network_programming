@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
             read(clntSd, &nonce_received, sizeof(nonce_received));
 
             // 클라이언트로부터 받은 nonce 값 출력
-            printf("클라이언트로부터 받은 nonce 값: %d\n", nonce_received);
+            printf("클라이언트로부터 받은 nonce 값: %u\n", nonce_received);
 
             close(clntSd);
 
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
                 end_time = clock();
                 elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
-                printf("nonce 값(%d)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
+                printf("nonce 값(%u)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
 		kill(pid, SIGTERM);
 
                 // 프로그램 종료
