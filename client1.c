@@ -15,7 +15,7 @@
 void errProc(const char *str);
 void errPrint(const char *str);
 
-void calculateNonce(int sock, unsigned int difficulty, const char *challenge, unsigned int start, unsigned int end)
+void calculateNonce(int sock, unsigned int difficulty, const char *challenge, unsigned int start, unsigned int end, int *result_pipe)
 {
     unsigned int nonce;
     char hash[SHA256_DIGEST_LENGTH];
@@ -50,12 +50,11 @@ void calculateNonce(int sock, unsigned int difficulty, const char *challenge, un
             printf("Nonce found: %u\n", nonce);
             printf("Hash: %s\n", hex);
 
-            // Nonce 값을 서버로 전송
-            if (write(sock, &nonce, sizeof(nonce)) == -1)
+            // Nonce 값을 부모 프로세스로 전송
+            if (write(result_pipe[1], &nonce, sizeof(nonce)) == -1)
                 errProc("write");
 
             close(sock);
-
             exit(0);
         }
     }
@@ -73,9 +72,10 @@ int main(int argc, char **argv)
     int strLen;
     int difficulty;
     char challenge[BUFSIZ];
-    pid_t pid;
     unsigned int rangeSize;
     unsigned int start, end;
+    pid_t childPids[4]; // 자식 프로세스의 PID 저장 배열
+    int result_pipe[2]; // 자식 프로세스에서 부모 프로세스로 결과를 전달하기 위한 파이프
 
     if (argc != 3)
     {
@@ -106,14 +106,18 @@ int main(int argc, char **argv)
     printf("난이도: %d, 도전 값: %s\n", difficulty, challenge);
 
     // 계산 범위 설정
-    rangeSize = UINT_MAX/2 / 4;
+    rangeSize = UINT_MAX / 2 / 4;
     start = 0;
+
+    // 파이프 생성
+    if (pipe(result_pipe) == -1)
+        errProc("pipe");
 
     // Fork 멀티프로세스 생성
     for (int i = 0; i < 4; i++)
     {
         end = start + rangeSize;
-        pid = fork();
+        pid_t pid = fork();
 
         if (pid < 0)
         {
@@ -122,16 +126,51 @@ int main(int argc, char **argv)
         else if (pid == 0)
         {
             // 자식 프로세스는 calculateNonce 함수 호출
-            calculateNonce(sock, difficulty, challenge, start, end);
+            close(result_pipe[0]); // 자식 프로세스에서 읽는 파이프 닫음
+            calculateNonce(sock, difficulty, challenge, start, end, result_pipe);
+        }
+        else
+        {
+            childPids[i] = pid; // 자식 프로세스의 PID 저장
         }
 
         start = end + 1;
     }
 
-    // 부모 프로세스는 자식 프로세스의 종료를 기다림
+    close(result_pipe[1]); // 부모 프로세스에서 쓰는 파이프 닫음
+
+    unsigned int fastest_nonce;
+    int fastest_found = 0;
     for (int i = 0; i < 4; i++)
     {
-        wait(NULL);
+        unsigned int nonce;
+        ssize_t bytes_read = read(result_pipe[0], &nonce, sizeof(nonce));
+        if (bytes_read == sizeof(nonce))
+        {
+            if (!fastest_found || nonce < fastest_nonce)
+            {
+                fastest_nonce = nonce;
+                fastest_found = 1;
+            }
+        }
+    }
+
+    if (fastest_found)
+    {
+        printf("가장 빠른 Nonce: %u\n", fastest_nonce);
+        // 가장 빠른 nonce 값을 서버로 전송
+        if (write(sock, &fastest_nonce, sizeof(fastest_nonce)) == -1)
+            errProc("write");
+    }
+    else
+    {
+        printf("결과를 찾지 못했습니다.\n");
+    }
+
+    // 모든 자식 프로세스의 종료를 기다림
+    for (int i = 0; i < 4; i++)
+    {
+        waitpid(childPids[i], NULL, 0);
     }
 
     close(sock);
