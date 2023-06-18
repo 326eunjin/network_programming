@@ -1,3 +1,7 @@
+/*
+=== client2 ===
+*/
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -12,8 +16,8 @@
 #include <unistd.h>
 #include <limits.h>
 
-void errProc(const char *str);
-void errPrint(const char *str);
+void errProc(const char* str);
+void errPrint(const char* str);
 
 void calculate_hash(const char* input, unsigned int nonce, unsigned char* hash) {
     // input과 nonce를 합쳐 해시값을 계산하는 함수
@@ -27,7 +31,7 @@ int check_difficulty(unsigned char* hash, const int difficulty) {
     int count = 0;
     for (int i = 0; i < difficulty / 2; i++) {
         if (hash[i] == 0) {
-            count += 2; 
+            count += 2;
         }
         else {
             break;
@@ -41,12 +45,12 @@ int check_difficulty(unsigned char* hash, const int difficulty) {
     return count >= difficulty;
 }
 
-void find_Nonce(int sock, unsigned int difficulty, const char *challenge, unsigned int start, unsigned int end, int *result_pipe) {
+void find_Nonce(int sock, unsigned int difficulty, const char* challenge, unsigned int start, unsigned int end, int* result_pipe) {
     unsigned int nonce;
     char hash[SHA256_DIGEST_LENGTH];
 
     for (nonce = start; nonce <= end; nonce++) { // start부터 end까지 nonce 탐색
-    
+
         // Calculate hash
         calculate_hash(challenge, nonce, hash); // 'challenge||nonce'의 해시값 계산
 
@@ -63,7 +67,7 @@ void find_Nonce(int sock, unsigned int difficulty, const char *challenge, unsign
     kill(getpid(), SIGTERM);
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int sock;
     struct sockaddr_in servAddr;
@@ -92,7 +96,7 @@ int main(int argc, char **argv)
     servAddr.sin_addr.s_addr = inet_addr(argv[1]);
     servAddr.sin_port = htons(atoi(argv[2]));
 
-    if (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)) == -1)
+    if (connect(sock, (struct sockaddr*)&servAddr, sizeof(servAddr)) == -1)
         errProc("connect");
 
     // 난이도 값을 서버로부터 수신
@@ -106,8 +110,8 @@ int main(int argc, char **argv)
     printf("난이도: %d, 도전 값: %s\n", difficulty, challenge);
 
     // 계산 범위 설정
-    rangeSize = UINT_MAX/2 / 4;
-    start = 0;
+    rangeSize = UINT_MAX / 2 / 4;
+    start = UINT_MAX / 2 + 1;
 
     // 파이프 생성
     if (pipe(result_pipe) == -1)
@@ -128,7 +132,7 @@ int main(int argc, char **argv)
         else {
             childPids[i] = pid; // 자식 프로세스의 pid 저장
         }
-        start = end + 1; 
+        start = end + 1;
     }
 
     close(result_pipe[1]);
@@ -172,13 +176,13 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void errProc(const char *str)
+void errProc(const char* str)
 {
     fprintf(stderr, "%s: %s \n", str, strerror(errno));
     exit(1);
 }
 
-void errPrint(const char *str)
+void errPrint(const char* str)
 {
     fprintf(stderr, "%s: %s \n", str, strerror(errno));
 }
