@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     char rBuff[BUFSIZ];
     pid_t pid;
     struct sigaction sa;
-    int difficulty = 7; // 난이도 값을 나타내는 변수 (정수)
+    int difficulty = 6; // 난이도 값을 나타내는 변수 (정수)
     char *challenge = "0000000"; // 도전 값을 나타내는 변수 (문자열)
 
     if (argc != 2) {
@@ -58,8 +58,9 @@ int main(int argc, char **argv) {
     unsigned int nonce_received = 0;
     unsigned int nonce = 0;
     double start_time, end_time, elapsed_time;
+    int nonce_received_count = 0; // nonce 값을 받은 클라이언트 수
 
-    while (1) {
+    while (nonce_received_count < num_clients) {
         clntSd = accept(srvSd, (struct sockaddr *)&clntAddr, &clntAddrLen);
         if (clntSd == -1) {
             errPrint("accept");
@@ -99,7 +100,13 @@ int main(int argc, char **argv) {
                 elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
                 printf("nonce 값(%d)에 대한 소요 시간: %f 초\n", nonce, elapsed_time);
+
+                // 프로그램 종료
+                return 0;
             }
+
+            // nonce 값을 받은 클라이언트 수 증가
+            nonce_received_count++;
 
             return 0;
         } else if (pid == -1)
