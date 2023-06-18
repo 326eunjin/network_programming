@@ -116,6 +116,15 @@ int main() {
         close(pipes[i][0]); // Close the read end of the pipe in the parent process
     }
 
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    calculate_hash(input, nonce, hash);
+
     printf("Nonce: %u\n", nonce);
+    printf("Hash: ");
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        printf("%02x", hash[i]);
+    }
+    printf("\n");
+
     return 0;
 }
