@@ -56,7 +56,7 @@ void find_Nonce(int sock, unsigned int difficulty, const char *challenge, unsign
             exit(0);
         }
     }
-    printf("not found\n");
+    // printf("not found\n");
     close(sock);
 
     // 프로세스 자체 종료

@@ -22,8 +22,8 @@ int main(int argc, char **argv) {
     char rBuff[BUFSIZ];
     pid_t pid;
     struct sigaction sa;
-    int difficulty = 6; // 난이도 값을 나타내는 변수 (정수)
-    char *challenge = "0000000"; // 도전 값을 나타내는 변수 (문자열)
+    int difficulty = 8; // 난이도 값을 나타내는 변수 (정수)
+    char *challenge = "201928712019279720213135"; // 도전 값을 나타내는 변수 (문자열)
 
     if (argc != 2) {
         printf("사용법: %s [포트번호] \n", argv[0]);

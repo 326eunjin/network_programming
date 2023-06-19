@@ -1,6 +1,6 @@
-/* 
- * === client 1 ===
- */
+/*
+=== client1 ===
+*/
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -16,8 +16,8 @@
 #include <unistd.h>
 #include <limits.h>
 
-void errProc(const char *str);
-void errPrint(const char *str);
+void errProc(const char* str);
+void errPrint(const char* str);
 
 void calculate_hash(const char* input, unsigned int nonce, unsigned char* hash) {
     // input과 nonce를 합쳐 해시값을 계산하는 함수
@@ -31,7 +31,7 @@ int check_difficulty(unsigned char* hash, const int difficulty) {
     int count = 0;
     for (int i = 0; i < difficulty / 2; i++) {
         if (hash[i] == 0) {
-            count += 2; 
+            count += 2;
         }
         else {
             break;
@@ -45,29 +45,32 @@ int check_difficulty(unsigned char* hash, const int difficulty) {
     return count >= difficulty;
 }
 
-void find_Nonce(int sock, unsigned int difficulty, const char *challenge, unsigned int start, unsigned int end, int *result_pipe) {
+void find_Nonce(int sock, unsigned int difficulty, const char* challenge, unsigned int start, unsigned int end, int* result_pipe) {
     unsigned int nonce;
     char hash[SHA256_DIGEST_LENGTH];
+    int found = 0;
 
     for (nonce = start; nonce <= end; nonce++) { // start부터 end까지 nonce 탐색
-    
+
         // Calculate hash
         calculate_hash(challenge, nonce, hash); // 'challenge||nonce'의 해시값 계산
 
-        if (check_difficulty(hash, difficulty)) { // 해시값이 난이도 만족하는지 검사
-            write(result_pipe[1], &nonce, sizeof(nonce)); // 만족하면 nonce 서버로 전송하기
-            close(sock); // sock을 닫으면 write 못하지 않나??
-            exit(0);
+        if (check_difficulty(hash, difficulty)) { // 해시값이 난이도를 만족하는지 검사
+            found = 1;
+            break;
         }
     }
-    printf("not found\n");
-    close(sock);
 
+    if (found) {
+        write(result_pipe[1], &nonce, sizeof(nonce)); // 만족하는 nonce를 파이프로 전송
+    }
+
+    close(sock);
     // 프로세스 자체 종료
     kill(getpid(), SIGTERM);
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int sock;
     struct sockaddr_in servAddr;
@@ -96,7 +99,7 @@ int main(int argc, char **argv)
     servAddr.sin_addr.s_addr = inet_addr(argv[1]);
     servAddr.sin_port = htons(atoi(argv[2]));
 
-    if (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)) == -1)
+    if (connect(sock, (struct sockaddr*)&servAddr, sizeof(servAddr)) == -1)
         errProc("connect");
 
     // 난이도 값을 서버로부터 수신
@@ -110,7 +113,7 @@ int main(int argc, char **argv)
     printf("난이도: %d, 도전 값: %s\n", difficulty, challenge);
 
     // 계산 범위 설정
-    rangeSize = UINT_MAX/2 / 4;
+    rangeSize = (UINT_MAX/2)/4;
     start = 0;
 
     // 파이프 생성
@@ -125,14 +128,14 @@ int main(int argc, char **argv)
         if (pid < 0) {
             errProc("fork");
         }
-        else if (pid == 0) { // 자식 프로세스는 calculateNonce 함수 호출
+        else if (pid == 0) { // 자식 프로세스는 find_Nonce 함수 호출
             close(result_pipe[0]); // 자식 프로세스에서 읽는 파이프 닫음
             find_Nonce(sock, difficulty, challenge, start, end, result_pipe);
         }
         else {
             childPids[i] = pid; // 자식 프로세스의 pid 저장
         }
-        start = end + 1; 
+        start = end + 1;
     }
 
     close(result_pipe[1]);
@@ -176,13 +179,13 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void errProc(const char *str)
+void errProc(const char* str)
 {
     fprintf(stderr, "%s: %s \n", str, strerror(errno));
     exit(1);
 }
 
-void errPrint(const char *str)
+void errPrint(const char* str)
 {
     fprintf(stderr, "%s: %s \n", str, strerror(errno));
 }

@@ -48,21 +48,24 @@ int check_difficulty(unsigned char* hash, const int difficulty) {
 void find_Nonce(int sock, unsigned int difficulty, const char* challenge, unsigned int start, unsigned int end, int* result_pipe) {
     unsigned int nonce;
     char hash[SHA256_DIGEST_LENGTH];
+    int found = 0;
 
     for (nonce = start; nonce <= end; nonce++) { // start부터 end까지 nonce 탐색
 
         // Calculate hash
         calculate_hash(challenge, nonce, hash); // 'challenge||nonce'의 해시값 계산
 
-        if (check_difficulty(hash, difficulty)) { // 해시값이 난이도 만족하는지 검사
-            write(result_pipe[1], &nonce, sizeof(nonce)); // 만족하면 nonce 서버로 전송하기
-            close(sock); // sock을 닫으면 write 못하지 않나??
-            exit(0);
+        if (check_difficulty(hash, difficulty)) { // 해시값이 난이도를 만족하는지 검사
+            found = 1;
+            break;
         }
     }
-    printf("not found\n"); // 검사한 범위에서 안나오는 경우
-    close(sock);
 
+    if (found) {
+        write(result_pipe[1], &nonce, sizeof(nonce)); // 만족하는 nonce를 파이프로 전송
+    }
+
+    close(sock);
     // 프로세스 자체 종료
     kill(getpid(), SIGTERM);
 }
@@ -125,7 +128,7 @@ int main(int argc, char** argv)
         if (pid < 0) {
             errProc("fork");
         }
-        else if (pid == 0) { // 자식 프로세스는 calculateNonce 함수 호출
+        else if (pid == 0) { // 자식 프로세스는 find_Nonce 함수 호출
             close(result_pipe[0]); // 자식 프로세스에서 읽는 파이프 닫음
             find_Nonce(sock, difficulty, challenge, start, end, result_pipe);
         }
