@@ -103,8 +103,6 @@ int main(int argc, char **argv) {
             if (nonce_received > 0 && nonce == 0) {
                 nonce = nonce_received;
                 printf("nonce 값(%u)에 대한 처리...\n", nonce);
-                // 처리 작업 수행
-                // ...
                 kill(pid, SIGTERM);
                 // 프로그램 종료
                 return 0;
@@ -123,16 +121,10 @@ int main(int argc, char **argv) {
             if (nonce_received > 0 && nonce == 0) {
                 nonce = nonce_received;
                 printf("nonce 값(%u)에 대한 처리 시작...\n", nonce);
-                // 처리 작업 시작
-                // ...
             }
         }
     }
 
-    // time_t end_time = time(NULL); // 종료 시간 저장
-    // time_t elapsed_time = end_time - start_time; // 경과 시간 계산
-
-    // printf("클라이언트로부터 난이도 값을 보내는데 걸린 시간: %ld초\n", elapsed_time);
 
     return 0;
 }
