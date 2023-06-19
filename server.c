@@ -89,11 +89,14 @@ int main(int argc, char **argv) {
             read(clntSd, &nonce_received, sizeof(nonce_received));
 
             // 클라이언트로부터 받은 nonce 값 출력
-            printf("클라이언트로부터 받은 nonce 값: %u\n", nonce_received);
+            if (nonce_received > 0) {
+                printf("클라이언트로부터 받은 nonce 값: %u\n", nonce_received);
                 time_t end_time = time(NULL); // 종료 시간 저장
-    time_t elapsed_time = end_time - start_time; // 경과 시간 계산
+                time_t elapsed_time = end_time - start_time; // 경과 시간 계산
 
-    printf("클라이언트로부터 난이도 값을 보내는데 걸린 시간: %ld초\n", elapsed_time);
+                printf("클라이언트로부터 난이도 값을 보내는데 걸린 시간: %ld초\n", elapsed_time);
+            }
+
             close(clntSd);
 
             // nonce 값을 받았을 때 처리
